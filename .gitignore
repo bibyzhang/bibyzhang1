@@ -1,0 +1,161 @@
+<?php
+/**
+ * 判断某一天是星期几
+ * @param $date 格式'YYYY-mm-dd' 格式出错返回false,正确返回对应日期中星期一到星期天的某一天
+ */
+function get_weekday($date){
+	$date_arr = explode('-', trim($date));
+	if(!checkdate(intval($date_arr[1]), intval($date_arr[2]), intval($date_arr[0]))){
+		return false;
+	}
+	switch (date('w',strtotime($date))) {
+		case '0':
+			$weekday = '天';
+			break;
+		case '1':
+			$weekday = '一';
+			break;
+		case '2':
+			$weekday = '二';
+			break;
+		case '3':
+			$weekday = '三';
+			break;
+		case '4':
+			$weekday = '四';
+			break;
+		case '5':
+			$weekday = '五';
+			break;
+		case '6':
+			$weekday = '六';
+			break;
+		default:
+			return false;
+			break;
+	}
+	return $weekday;
+}
+//demo_调用
+/*
+$day = '2013-08-12';
+if(get_weekday($day)){
+	$test1 = get_weekday($day);
+	echo '星期' . $test1 . '<br />';
+}else{
+	echo '日期出错';
+}
+*/
+/**
+ * 获取一年中所有星期的起始日期
+ * @param $year 格式 'YYYY'
+ * 返回二维数组 下标 key1值对应一年中某一天所在周的实际年份	key2值对应一年中某一天所在的周数[一年中第几周] 
+ * 返回false 日期格式错误
+ */
+function get_all_weeks($year){
+	$week_arr = array();
+	$year = intval(trim($year));
+	$preg = "/^\d{4,}$/";
+	if(!preg_match($preg, $year)){
+		return false;
+	}	
+	$begin_day = $year . '-01-01';
+	$end_day = $year . '-12-31';
+	//一年第一个星期一
+	if(date('w',strtotime($begin_day))!=1){
+		$begin_day = date('Y-m-d',strtotime("next monday", strtotime($begin_day)));
+	}
+	//第一个星期一所在周数
+	$begin_week_num = intval(date('W',strtotime($begin_day)));
+	//一年最后一个星期天
+	if(date('w',strtotime($end_day))!=0){
+		$end_day = date('Y-m-d',strtotime("last sunday",strtotime($end_day)));
+		//存在跨年的星期，跨年所在周星期一
+		$end_day_next = date('Y-m-d',strtotime($end_day)+24*60*60);
+		//跨年星期所属年份与所在周数
+		$stride_year = date('o',strtotime($end_day_next));
+		$stride_weeknum = intval(date('W',strtotime($end_day_next)));
+	}
+	//最后一个星期天所在周数
+	$end_week_num = intval(date('W',strtotime($end_day)));
+	//一年第一个周一为一年的第一周或者第二周
+	if($begin_week_num!=1){
+		$i=2;
+	}else{
+		$i=1;
+	}
+	$j = 0;
+	for($i;$i<=$end_week_num;$i++){		
+		$start_date = date("Y-m-d", strtotime("$begin_day $j week"));
+		$end_day = date("Y-m-d", strtotime($start_date . '+6 day'));
+		$week_arr[$year][$i] = array(
+			$start_date,
+			$end_day
+		);
+		$j++;
+	}
+	if($end_day_next){
+		$week_arr[$stride_year][$stride_weeknum] = array(
+			$end_day_next,
+			date("Y-m-d", strtotime($end_day_next . '+6 day'))
+		);
+	}
+	return $week_arr;
+}
+//demo_调用
+/*
+$year = '2013';
+if(get_all_weeks($year)){
+	var_dump(get_all_weeks($year));
+}else{
+	echo '日期格式出错';
+}
+*/
+/**
+ * 获取某一天所在周的起始日期
+ * 依赖 function get_all_weeks
+ * @param $day 格式:'YYYY-mm-dd'
+ * 返回false 日期格式错误
+ * 正确,返回json "{"begin_day":"YYYY-mm-dd","end_day":"YYYY-mm-dd"}"
+ */
+function get_day_week($day){
+	$date_arr = explode('-', trim($day));
+	if(!checkdate(intval($date_arr[1]), intval($date_arr[2]), intval($date_arr[0]))){
+		return false;
+	}
+	$year = date('Y',strtotime($day));
+	$weeks = get_all_weeks($year);
+	//某一天所属的年份与周数
+	$real_year = date('o',strtotime($day));
+	$week_num = intval(date('W',strtotime($day)));
+	if(!empty($weeks[$real_year][$week_num][0]))
+		$begin_day = $weeks[$real_year][$week_num][0];
+	if(!empty($weeks[$real_year][$week_num][1]))
+		$end_day = $weeks[$real_year][$week_num][1];
+	//跨年周数值存储于上一年中
+	if(empty($begin_day)||empty($end_day)){
+		$year = date('Y',strtotime($day))-1;
+		$weeks = get_all_weeks($year);
+		$real_year = date('o',strtotime($day));
+		$week_num = intval(date('W',strtotime($day)));
+		if(!empty($weeks[$real_year][$week_num][0]))
+			$begin_day = $weeks[$real_year][$week_num][0];
+		if(!empty($weeks[$real_year][$week_num][1]))
+			$end_day = $weeks[$real_year][$week_num][1];		
+	}
+	$the_day = array(
+		'begin_day' => $begin_day,
+		'end_day' => $end_day
+	);
+	$the_day = json_encode($the_day);
+	return $the_day;
+}
+//demo_调用
+/*
+$day = '2014-01-01';
+if(get_day_week($day)){
+	var_dump(get_day_week($day));
+}else{
+	echo '日期格式出错';
+}
+*/
